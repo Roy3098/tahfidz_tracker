@@ -38,14 +38,12 @@ export const TasmiView: React.FC = () => {
   const [selectedStudentForSchedule, setSelectedStudentForSchedule] = useState<string>(santriList[0]?.id || '');
   const [scheduleDate, setScheduleDate] = useState('2026-09-28');
   const [scheduleTime, setScheduleTime] = useState('09:00');
-  const [scheduleExaminer, setScheduleExaminer] = useState('Ustadz Ahmad');
   const [scheduleTarget, setScheduleTarget] = useState('Juz 1-10 Bil Ghoib');
 
   // Edit Schedule Modal state
   const [editingTasmiSchedule, setEditingTasmiSchedule] = useState<TasmiRecord | null>(null);
   const [editScheduleDate, setEditScheduleDate] = useState('');
   const [editScheduleTime, setEditScheduleTime] = useState('');
-  const [editScheduleExaminer, setEditScheduleExaminer] = useState('');
   const [editScheduleTarget, setEditScheduleTarget] = useState('');
 
   // Result modal state
