@@ -38,12 +38,14 @@ export const TasmiView: React.FC = () => {
   const [selectedStudentForSchedule, setSelectedStudentForSchedule] = useState<string>(santriList[0]?.id || '');
   const [scheduleDate, setScheduleDate] = useState('2026-09-28');
   const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [scheduleExaminer, setScheduleExaminer] = useState('Ustadz Ahmad');
   const [scheduleTarget, setScheduleTarget] = useState('Juz 1-10 Bil Ghoib');
 
   // Edit Schedule Modal state
   const [editingTasmiSchedule, setEditingTasmiSchedule] = useState<TasmiRecord | null>(null);
   const [editScheduleDate, setEditScheduleDate] = useState('');
   const [editScheduleTime, setEditScheduleTime] = useState('');
+  const [editScheduleExaminer, setEditScheduleExaminer] = useState('');
   const [editScheduleTarget, setEditScheduleTarget] = useState('');
 
   // Result modal state
@@ -252,7 +254,13 @@ export const TasmiView: React.FC = () => {
                 </div>
 
                 {/* Details info */}
+                <div className="text-xs text-slate-600 bg-white/70 p-3 rounded-xl border border-slate-200/60 mb-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Penguji:</span>
+                    <span className="font-semibold text-slate-800">{record.penguji}</span>
+                  </div>
                   {isCompleted && (
+                    <>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Nilai Kelulusan:</span>
                         <span className="font-bold text-emerald-700 text-sm">{record.nilai} (Mumtaz)</span>
@@ -265,6 +273,7 @@ export const TasmiView: React.FC = () => {
                       )}
                     </>
                   )}
+                </div>
 
                 {/* Actions for teacher */}
                 {!isParent && (
@@ -334,6 +343,7 @@ export const TasmiView: React.FC = () => {
                             setEditingTasmiSchedule(record);
                             setEditScheduleDate(record.tanggal || '2026-09-28');
                             setEditScheduleTime((record.waktu || '09:00 WIB').replace(' WIB', ''));
+                            setEditScheduleExaminer(record.penguji || 'Ustadz Ahmad');
                             setEditScheduleTarget(record.targetJuzText || 'Juz 1-10 Bil Ghoib');
                           }}
                           className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
@@ -485,6 +495,20 @@ export const TasmiView: React.FC = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Penguji (Asatidz)</label>
+                <select
+                  value={scheduleExaminer}
+                  onChange={e => setScheduleExaminer(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs"
+                >
+                  <option value="Ustadz Ahmad">Ustadz Ahmad</option>
+                  <option value="Ustadzah Fatimah">Ustadzah Fatimah</option>
+                  <option value="Ustadz Yusuf">Ustadz Yusuf</option>
+                  <option value="Ustadzah Khadijah">Ustadzah Khadijah</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Target Hafalan yang Diuji</label>
                 <input
                   type="text"
@@ -633,6 +657,20 @@ export const TasmiView: React.FC = () => {
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Penguji (Asatidz)</label>
+                <select
+                  value={editScheduleExaminer}
+                  onChange={e => setEditScheduleExaminer(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs"
+                >
+                  <option value="Ustadz Ahmad">Ustadz Ahmad</option>
+                  <option value="Ustadzah Fatimah">Ustadzah Fatimah</option>
+                  <option value="Ustadz Yusuf">Ustadz Yusuf</option>
+                  <option value="Ustadzah Khadijah">Ustadzah Khadijah</option>
+                </select>
               </div>
 
               <div>
