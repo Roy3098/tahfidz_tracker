@@ -618,11 +618,14 @@ export const TahfidzProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const updatedList = [newEntry, ...s.hafalanList];
           const juzSet = new Set(updatedList.filter(h => h.category === 'juz').map(h => h.juz));
           const totalJuz = Math.max(s.totalJuzMemorized, juzSet.size);
+          const growthDelta = newEntry.category === 'juz' ? 1.0 : (newEntry.category === 'surah' ? 0.5 : 0.2);
+          const newGrowth = Number(((s.weeklyGrowthJuz || 0) + growthDelta).toFixed(1));
 
           const updatedStudent = {
             ...s,
             hafalanList: updatedList,
             totalJuzMemorized: totalJuz,
+            weeklyGrowthJuz: newGrowth,
             terakhirSetor: {
               juz: newEntry.juz,
               surah: newEntry.surahName,
@@ -775,26 +778,39 @@ export const TahfidzProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAttendanceHistory(prev => [...newAttendanceRecords, ...prev]);
 
     // Atomically update santriList and sync to Cloud Firestore
-    if (newHafalanDeposits.length > 0) {
+    if (newHafalanDeposits.length > 0 || records.length > 0) {
+      const studentIdsInRecords = new Set(records.map(r => r.studentId));
       setSantriList(prev => prev.map(s => {
+        if (!studentIdsInRecords.has(s.id)) return s;
         const studentDeposits = newHafalanDeposits.filter(d => d.studentId === s.id);
-        if (studentDeposits.length === 0) return s;
 
         const updatedList = [...studentDeposits, ...s.hafalanList];
         const latestDeposit = studentDeposits[0];
         const juzSet = new Set(updatedList.filter(h => h.category === 'juz').map(h => h.juz));
         const totalJuz = Math.max(s.totalJuzMemorized, juzSet.size);
 
+        const pastRecords = attendanceHistory.filter(r => r.studentId === s.id);
+        const allStudentRecords = [...newAttendanceRecords.filter(r => r.studentId === s.id), ...pastRecords];
+        const onTime = allStudentRecords.filter(r => r.status === 'hadir_tepat').length;
+        const late = allStudentRecords.filter(r => r.status === 'hadir_terlambat').length;
+        const totalSess = allStudentRecords.length;
+        const newKehadiran = totalSess > 0 
+          ? Math.min(100, Math.max(0, Math.round(((onTime * 1.0 + late * 0.8) / totalSess) * 100)))
+          : (s.kehadiranPersen || 100);
+
+        const growthDelta = latestDeposit ? (latestDeposit.category === 'juz' ? 1.0 : (latestDeposit.category === 'surah' ? 0.5 : 0.2)) : 0;
         const updatedStudent = {
           ...s,
+          kehadiranPersen: newKehadiran,
+          weeklyGrowthJuz: Number(((s.weeklyGrowthJuz || 0) + growthDelta).toFixed(1)),
           hafalanList: updatedList,
           totalJuzMemorized: totalJuz,
-          terakhirSetor: {
+          terakhirSetor: latestDeposit ? {
             juz: latestDeposit.juz,
             surah: latestDeposit.surahName,
             ayat: latestDeposit.ayatMulai ? `Ayat ${latestDeposit.ayatMulai}-${latestDeposit.ayatSelesai || ''}` : 'Selesai',
             tanggal: latestDeposit.tanggal
-          }
+          } : s.terakhirSetor
         };
 
         // Sync student data to Cloud Firestore
