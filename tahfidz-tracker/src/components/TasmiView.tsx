@@ -254,7 +254,7 @@ export const TasmiView: React.FC = () => {
                 </div>
 
                 {/* Details info */}
-                <div className="text-xs text-slate-600 bg-white/70 p-3 rounded-xl border border-slate-200/60 mb-3 space-y-1">
+                <div>
                   {isCompleted && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Nilai Kelulusan:</span>
