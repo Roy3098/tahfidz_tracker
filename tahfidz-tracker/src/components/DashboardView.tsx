@@ -114,7 +114,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenAddHafalan }
       liveActivities.push({
         id: `tsm-${tsm.id}`,
         title: `${tsm.studentName} tuntas Ujian Tasmi'`,
-        desc: `${tsm.targetJuzText} dengan nilai ${tsm.nilai || 'Mumtaz'} (Penguji: ${tsm.penguji})`,
+        desc: `${tsm.targetJuzText} · Predikat Nilai ${tsm.nilai || 'Mumtaz'}`,
         tag: "Tasmi' Selesai",
         type: 'tasmi',
         time: formatActivityTime(tsm.tanggal),
