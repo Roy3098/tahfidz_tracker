@@ -495,20 +495,6 @@ export const TasmiView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Penguji (Asatidz)</label>
-                <select
-                  value={scheduleExaminer}
-                  onChange={e => setScheduleExaminer(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs"
-                >
-                  <option value="Ustadz Ahmad">Ustadz Ahmad</option>
-                  <option value="Ustadzah Fatimah">Ustadzah Fatimah</option>
-                  <option value="Ustadz Yusuf">Ustadz Yusuf</option>
-                  <option value="Ustadzah Khadijah">Ustadzah Khadijah</option>
-                </select>
-              </div>
-
-              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Target Hafalan yang Diuji</label>
                 <input
                   type="text"
