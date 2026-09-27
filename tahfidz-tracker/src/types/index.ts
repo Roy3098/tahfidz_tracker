@@ -88,7 +88,7 @@ export interface TasmiRecord {
   targetJuzText: string;
   tanggal?: string;
   waktu?: string;
-  penguji: string;
+  penguji?: string;
   status: TasmiStatus;
   nilai?: 'A' | 'A-' | 'B+' | 'B' | 'C' | 'D';
   catatan?: string;
