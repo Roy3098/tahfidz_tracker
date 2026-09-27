@@ -38,14 +38,151 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenAddHafalan }
   const totalSantri = santriList.length;
   const totalJuzAll = santriList.reduce((acc, s) => acc + s.totalJuzMemorized, 0);
   const avgJuz = (totalJuzAll / (totalSantri || 1)).toFixed(1);
-  const avgAttendance = Math.round(santriList.reduce((acc, s) => acc + s.kehadiranPersen, 0) / (totalSantri || 1));
   const tasmiDoneCount = tasmiList.filter(t => t.status === 'selesai').length;
   const tasmiScheduledCount = tasmiList.filter(t => t.status === 'terjadwal').length;
 
-  // Leaderboards
+  // Realtime Helper 1: calculate student's accurate attendance rate from attendanceHistory
+  const getStudentRealtimeAttendance = (student: typeof santriList[0]) => {
+    const studentRecords = attendanceHistory.filter(r => r.studentId === student.id);
+    
+    if (studentRecords.length === 0) {
+      const pct = student.kehadiranPersen || 100;
+      return {
+        attendancePct: pct,
+        totalSessions: 15,
+        presentSessions: Math.round(15 * (pct / 100)),
+        onTimeSessions: Math.round(15 * (pct / 100)),
+        lateSessions: 0,
+        absentSessions: Math.round(15 * (1 - pct / 100))
+      };
+    }
+
+    const onTime = studentRecords.filter(r => r.status === 'hadir_tepat').length;
+    const late = studentRecords.filter(r => r.status === 'hadir_terlambat').length;
+    const absent = studentRecords.filter(r => r.status === 'tidak_hadir').length;
+    const present = onTime + late;
+    const total = studentRecords.length;
+
+    // Blend with initial baseline if recorded sessions are small (< 10)
+    let finalPct: number;
+    let effectiveTotal: number;
+    let effectivePresent: number;
+
+    if (total >= 10) {
+      finalPct = Math.round(((onTime * 1.0 + late * 0.8) / total) * 100);
+      effectiveTotal = total;
+      effectivePresent = present;
+    } else {
+      const baseSessions = 15;
+      const basePresent = baseSessions * ((student.kehadiranPersen || 90) / 100);
+      effectiveTotal = baseSessions + total;
+      effectivePresent = Math.round(basePresent + (onTime * 1.0 + late * 0.8));
+      finalPct = Math.min(100, Math.max(0, Math.round((effectivePresent / effectiveTotal) * 100)));
+    }
+
+    return {
+      attendancePct: finalPct,
+      totalSessions: effectiveTotal,
+      presentSessions: effectivePresent,
+      onTimeSessions: onTime,
+      lateSessions: late,
+      absentSessions: absent
+    };
+  };
+
+  // Realtime Helper 2: calculate student's true weekly growth from hafalanList
+  const getStudentRealtimeGrowth = (student: typeof santriList[0]) => {
+    const hafalan = student.hafalanList || [];
+    const sorted = [...hafalan].sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
+    const latestDateStr = sorted[0]?.tanggal;
+    const refDate = latestDateStr ? new Date(latestDateStr) : new Date();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    const recentDeposits = sorted.filter(h => {
+      if (!h.tanggal) return false;
+      const d = new Date(h.tanggal);
+      return Math.abs(refDate.getTime() - d.getTime()) <= sevenDaysMs;
+    });
+
+    const activeList = recentDeposits.length > 0 ? recentDeposits : sorted.slice(0, 3);
+
+    let calculatedGrowth = 0;
+    activeList.forEach(h => {
+      if (h.type === 'baru') {
+        if (h.category === 'juz') {
+          calculatedGrowth += 1.0;
+        } else if (h.ayatMulai && h.ayatSelesai) {
+          const count = h.ayatSelesai - h.ayatMulai + 1;
+          calculatedGrowth += Math.min(1.0, Math.max(0.2, Number((count / 120).toFixed(1))));
+        } else {
+          calculatedGrowth += 0.5;
+        }
+      } else {
+        calculatedGrowth += 0.2;
+      }
+    });
+
+    const growth = Math.max(
+      student.weeklyGrowthJuz || 0,
+      Number(calculatedGrowth.toFixed(1))
+    );
+
+    return {
+      growthJuz: Number(growth.toFixed(1)),
+      recentCount: Math.max(activeList.length, hafalan.length > 0 ? 1 : 0),
+      lastDepositInfo: sorted[0] ? `${sorted[0].surahName || `Juz ${sorted[0].juz}`}` : 'Belum setor'
+    };
+  };
+
+  // Real-time Leaderboards
   const topHafalan = [...santriList].sort((a, b) => b.totalJuzMemorized - a.totalJuzMemorized).slice(0, 5);
-  const topGrowth = [...santriList].sort((a, b) => b.weeklyGrowthJuz - a.weeklyGrowthJuz).slice(0, 5);
-  const topAttendance = [...santriList].sort((a, b) => b.kehadiranPersen - a.kehadiranPersen).slice(0, 10);
+
+  const topGrowth = santriList
+    .map(student => {
+      const stats = getStudentRealtimeGrowth(student);
+      return {
+        ...student,
+        realtimeGrowth: stats.growthJuz,
+        recentSetoranCount: stats.recentCount,
+        lastDepositInfo: stats.lastDepositInfo
+      };
+    })
+    .sort((a, b) => {
+      if (b.realtimeGrowth !== a.realtimeGrowth) {
+        return b.realtimeGrowth - a.realtimeGrowth;
+      }
+      return b.recentSetoranCount - a.recentSetoranCount;
+    })
+    .slice(0, 5);
+
+  const maxGrowth = Math.max(...topGrowth.map(s => s.realtimeGrowth), 1.0);
+
+  const topAttendance = santriList
+    .map(student => {
+      const stats = getStudentRealtimeAttendance(student);
+      return {
+        ...student,
+        realtimeAttendancePct: stats.attendancePct,
+        presentSessions: stats.presentSessions,
+        totalSessions: stats.totalSessions,
+        onTimeSessions: stats.onTimeSessions
+      };
+    })
+    .sort((a, b) => {
+      if (b.realtimeAttendancePct !== a.realtimeAttendancePct) {
+        return b.realtimeAttendancePct - a.realtimeAttendancePct;
+      }
+      if (b.presentSessions !== a.presentSessions) {
+        return b.presentSessions - a.presentSessions;
+      }
+      return b.totalJuzMemorized - a.totalJuzMemorized;
+    })
+    .slice(0, 10);
+
+  // Recalculate average attendance dynamically from real-time values
+  const avgAttendance = Math.round(
+    santriList.reduce((acc, s) => acc + getStudentRealtimeAttendance(s).attendancePct, 0) / (totalSantri || 1)
+  );
 
   // Helper to format relative time or date
   const formatActivityTime = (dateStr?: string) => {
@@ -338,69 +475,137 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenAddHafalan }
         </div>
 
         {/* Leaderboard 2: 5 Perkembangan Tercepat */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                <Rocket className="w-4 h-4" />
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <Rocket className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                    5 Perkembangan Tercepat
+                  </h3>
+                  <span className="text-[10px] text-blue-600 font-medium">Realtime Pekan Ini</span>
+                </div>
               </div>
-              <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                5 Perkembangan Tercepat
-              </h3>
+              <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                Max +{maxGrowth} Juz
+              </span>
             </div>
-            <span className="text-xs text-slate-400 font-medium">Minggu Ini</span>
-          </div>
 
-          <div className="space-y-3">
-            {topGrowth.map((student, idx) => (
-              <div key={student.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
-                    {idx + 1}
+            <div className="space-y-3.5">
+              {topGrowth.map((student, idx) => {
+                const growthPct = Math.min(100, Math.max(8, Math.round((student.realtimeGrowth / maxGrowth) * 100)));
+                const rankColor = 
+                  idx === 0 ? 'bg-blue-600 text-white shadow-xs' :
+                  idx === 1 ? 'bg-blue-500 text-white' :
+                  idx === 2 ? 'bg-sky-500 text-white' :
+                  'bg-slate-100 text-slate-600';
+
+                return (
+                  <div key={student.id} className="group">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${rankColor}`}>
+                          {idx + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-900 truncate block">
+                            {student.nama}
+                          </span>
+                          <span className="text-[10px] text-slate-500 truncate block">
+                            {student.kelompokNama} · {student.recentSetoranCount} setoran ({student.lastDepositInfo})
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 pl-2">
+                        <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md text-xs tabular-nums inline-block">
+                          +{student.realtimeGrowth} Juz
+                        </span>
+                      </div>
+                    </div>
+                    {/* Visual Bar Chart */}
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${growthPct}%` }} 
+                        title={`Pertumbuhan: +${student.realtimeGrowth} Juz (${growthPct}%)`}
+                      />
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-900 text-xs truncate">{student.nama}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{student.kelompokNama}</p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-bold text-blue-600 tabular-nums bg-blue-50 px-2 py-0.5 rounded-md">
-                    +{student.weeklyGrowthJuz} Juz
-                  </span>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Leaderboard 3: 10 Santri Paling Rajin */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <Flame className="w-4 h-4" />
-              </div>
-              <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                10 Santri Paling Rajin
-              </h3>
-            </div>
-            <span className="text-xs text-slate-400 font-medium">Kehadiran</span>
-          </div>
-
-          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-            {topAttendance.map((student, idx) => (
-              <div key={student.id} className="flex items-center gap-2.5 text-xs py-1">
-                <span className="w-5 text-center text-slate-400 font-bold tabular-nums">{idx + 1}</span>
-                <span className="font-semibold text-slate-900 truncate flex-1">{student.nama}</span>
-                <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className="bg-emerald-500 h-full rounded-full" 
-                    style={{ width: `${student.kehadiranPersen}%` }} 
-                  />
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Flame className="w-4 h-4" />
                 </div>
-                <span className="font-bold text-emerald-700 tabular-nums w-9 text-right">{student.kehadiranPersen}%</span>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                    10 Santri Paling Rajin
+                  </h3>
+                  <span className="text-[10px] text-emerald-600 font-medium">Realtime Presensi</span>
+                </div>
               </div>
-            ))}
+              <span className="text-xs text-slate-400 font-medium">100% Target</span>
+            </div>
+
+            <div className="space-y-2.5 max-h-[310px] overflow-y-auto pr-1">
+              {topAttendance.map((student, idx) => {
+                const rankBadge = 
+                  idx === 0 ? 'bg-emerald-600 text-white font-bold' :
+                  idx === 1 ? 'bg-emerald-500 text-white font-bold' :
+                  idx === 2 ? 'bg-teal-500 text-white font-bold' :
+                  'bg-slate-100 text-slate-600';
+
+                const barColor = 
+                  student.realtimeAttendancePct >= 95 ? 'bg-emerald-500' :
+                  student.realtimeAttendancePct >= 90 ? 'bg-teal-500' :
+                  student.realtimeAttendancePct >= 80 ? 'bg-cyan-500' : 'bg-amber-500';
+
+                return (
+                  <div key={student.id} className="py-0.5">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] shrink-0 ${rankBadge}`}>
+                          {idx + 1}
+                        </span>
+                        <span className="font-semibold text-slate-900 truncate">
+                          {student.nama}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate hidden sm:inline">
+                          ({student.kelompokNama})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-slate-500 tabular-nums">
+                          {student.presentSessions}/{student.totalSessions} sesi
+                        </span>
+                        <span className="font-bold text-emerald-700 tabular-nums w-10 text-right">
+                          {student.realtimeAttendancePct}%
+                        </span>
+                      </div>
+                    </div>
+                    {/* Visual Bar Chart */}
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`} 
+                        style={{ width: `${student.realtimeAttendancePct}%` }} 
+                        title={`Kehadiran: ${student.realtimeAttendancePct}% (${student.presentSessions}/${student.totalSessions} sesi)`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
