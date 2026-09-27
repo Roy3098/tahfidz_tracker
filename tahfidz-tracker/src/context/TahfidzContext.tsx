@@ -52,8 +52,8 @@ interface TahfidzContextType {
   }[]) => void;
 
   // Tasmi Actions
-  scheduleTasmi: (studentId: string, tanggal: string, waktu: string, penguji: string, targetText?: string) => void;
-  updateTasmiSchedule: (id: string, tanggal: string, waktu: string, penguji: string, targetText?: string) => void;
+  scheduleTasmi: (studentId: string, tanggal: string, waktu: string, penguji?: string, targetText?: string) => void;
+  updateTasmiSchedule: (id: string, tanggal: string, waktu: string, penguji?: string, targetText?: string) => void;
   updateTasmiResult: (id: string, nilai: TasmiRecord['nilai'], catatan: string) => void;
   cancelTasmi: (id: string) => void;
   deleteTasmi: (id: string) => void;
@@ -528,7 +528,11 @@ export const TahfidzProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUserAccounts(prev => [...prev, newAccount]);
 
       // Save cleanly to Cloud Firestore
-      await setDoc(doc(db, 'users', newId), cleanForFirestore(newAccount));
+      try {
+        await setDoc(doc(db, 'users', newId), cleanForFirestore(newAccount));
+      } catch (firestoreError) {
+        handleFirestoreError(firestoreError, OperationType.WRITE, `users/${newId}`);
+      }
 
       const safeUser: User = {
         id: newAccount.id,
@@ -811,7 +815,7 @@ export const TahfidzProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Tasmi Actions
-  const scheduleTasmi = (studentId: string, tanggal: string, waktu: string, penguji: string, targetText?: string) => {
+  const scheduleTasmi = (studentId: string, tanggal: string, waktu: string, penguji?: string, targetText?: string) => {
     const student = santriList.find(s => s.id === studentId);
     if (!student) return;
 
@@ -824,7 +828,7 @@ export const TahfidzProvider: React.FC<{ children: React.ReactNode }> = ({ child
       targetJuzText: targetText || `Juz ${student.totalJuzMemorized + 1}`,
       tanggal,
       waktu,
-      penguji,
+      penguji: penguji || '',
       status: 'terjadwal'
     };
 
@@ -834,14 +838,14 @@ export const TahfidzProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const updateTasmiSchedule = (id: string, tanggal: string, waktu: string, penguji: string, targetText?: string) => {
+  const updateTasmiSchedule = (id: string, tanggal: string, waktu: string, penguji?: string, targetText?: string) => {
     setTasmiList(prev => prev.map(t => {
       if (t.id === id) {
         const updated = {
           ...t,
           tanggal,
           waktu,
-          penguji,
+          ...(penguji !== undefined ? { penguji } : {}),
           ...(targetText ? { targetJuzText: targetText } : {})
         };
         setDoc(doc(db, 'tasmi', id), cleanForFirestore(updated)).catch(err => {
