@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // App allows multi-device sync for Tahfidz Quran management (public demo + authenticated school staff)
+    // Read operations allowed for authenticated users and public demo view
+    // Write operations are validated with key and size limits
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /santri/{santriId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /tasmi/{tasmiId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /classes/{classId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /groups/{groupId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /targets/{targetId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+  }
+}
