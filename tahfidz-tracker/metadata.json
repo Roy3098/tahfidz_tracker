@@ -1,8 +1,0 @@
-{
-  "name": "Tahfidz Tracker 2.1",
-  "description": "Sistem Pencatatan dan Pemantauan Hafalan Al-Quran Santri, Absensi Harian, dan Evaluasi Tasmi\u0027 Bulanan",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}
