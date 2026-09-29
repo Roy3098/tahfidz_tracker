@@ -97,7 +97,8 @@
       "type": "object",
       "properties": {
         "nama": { "type": "string", "maxLength": 100 },
-        "pengajar": { "type": "string", "maxLength": 100 }
+        "pengajar": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 }
       },
       "required": ["nama", "pengajar"]
     },
