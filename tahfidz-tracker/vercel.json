@@ -1,0 +1,27 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://swift-ivy-zvxch.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/__/firebase/:path*",
+      "destination": "https://swift-ivy-zvxch.firebaseapp.com/__/firebase/:path*"
+    },
+    {
+      "source": "/((?!api/|__/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
